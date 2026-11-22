@@ -35,12 +35,25 @@ inductive MustReach (lts : LTS State Label) (Q : Set State) : State → Prop
 /-- `V` is a ranking function for reaching `Q`: outside `Q`, a state is never stuck,
 and every step strictly lowers `V`. -/
 def IsRanking (lts : LTS State Label) (Q : Set State) (V : State → ℕ) : Prop :=
-  -- TODO(human): state the ranking condition.
-  sorry
+  ∀ s, s ∉ Q →
+    (¬ lts.IsTerminal s) ∧
+    (∀ μ s', lts.Tr s μ s' → V s' < V s)
 
-/-- **T1 (soundness).** A ranking function proves that every run from `s` reaches `Q`. -/
+**T1 (soundness).** Proves that if a valid ranking function exists for an LTS, every execution path starting from state `s` will successfully reach the goal set `Q`.
+
+The proof utilizes well-founded recursion based on the strictly decreasing value of `V s` (`termination_by V s`).
+- Base Case: If the current state `s` is already in `Q`, the proof terminates using `MustReach.here`.
+- Inductive Step: If `s` is not in `Q`, the proof extracts the non-terminal and strictly-decreasing guarantees from the `IsRanking` hypothesis `h`. It then constructs a `MustReach.step`, recursively applying the theorem to the next state `s'` while using the strict decrease in `V` as the termination proof.
+-/
 theorem mustReach_of_isRanking (lts : LTS State Label) {Q : Set State} {V : State → ℕ}
-    (h : lts.IsRanking Q V) (s : State) : lts.MustReach Q s := by
-  sorry
+    (h : lts.IsRanking Q V) (s : State) : lts.MustReach Q s :=
+  if hQ : s ∈ Q then
+    MustReach.here hQ
+  else
+    have ⟨hNotTerm, hStep⟩ := h s hQ
+    MustReach.step hNotTerm (fun μ s' hTr =>
+      have _decreasing_proof : V s' < V s := hStep μ s' hTr
+      mustReach_of_isRanking lts h s')
+termination_by V s
 
 end Cslib.LTS
